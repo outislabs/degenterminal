@@ -4,8 +4,7 @@
 
 🔗 **Live:** [terminal.degentools.co](https://terminal.degentools.co)
 🤖 **Telegram Bot:** [@dgnterminalbot](https://t.me/dgnterminalbot)
-🎥 **Walkthrough:** _[Loom link]_
-🐦 **Twitter:** [@degentoolshq](https://x.com/degentoolshq)
+🐦 **Twitter:** [@dgnterminal](https://x.com/dgnterminal)
 
 ---
 
@@ -70,7 +69,7 @@ Once linked from Settings, the bot supports:
 | BNB routing | 1inch |
 | Cross-chain | Li.Fi |
 | Live pool data | Helius WebSocket (SOL) |
-| Market data | DexScreener, Birdeye, Pump.fun, Bags, Four.meme |
+| Market data | Jupiter, DexScreener, Birdeye, Pump.fun, Bags, Four.meme |
 | AI | Gemini 2.5 Flash (safety explain, bot intent parsing) |
 | Bot framework | grammY |
 | Polling | cron-job.org |
