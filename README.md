@@ -6,7 +6,7 @@
 🤖 **Telegram Bot:** [@dgnterminalbot](https://t.me/dgnterminalbot) NOT LIVE
 🐦 **Twitter:** [@dgnterminal](https://x.com/dgnterminal)
 
-> **For Colosseum judges:** Full private repo access has been pre-provisioned for the Colosseum review team. If you need additional collaborator access, reach out to @legalalien0x on X.
+> **For Colosseum judges:** Full private repo access has been pre-provisioned for the Colosseum review team. For additional collaborator access, kindly reach out to @legalalien0x or @dgnterminal on X. t.me/legalalien0x on Telegram
 
 
 ---
