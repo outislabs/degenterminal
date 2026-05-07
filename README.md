@@ -1,82 +1,66 @@
 # Degen Terminal
 
-> A multi-chain memecoin trading terminal with embedded wallets, AI safety scanning, real-time alpha discovery, and a Telegram bot — all in one interface.
+> Solana-native memecoin trading terminal. Embedded wallets, real-time alpha discovery, AI-powered safety scanning, and a full Telegram bot — in one interface.
 
 🔗 **Live:** [terminal.degentools.co](https://terminal.degentools.co)
-🤖 **Telegram Bot:** [@dgnterminalbot](https://t.me/dgnterminalbot)
-🐦 **Twitter:** [@dgnterminal](https://x.com/dgnterminal)
+🤖 **Telegram Bot:** [@dgnterminalbot](https://t.me/dgnterminalbot) NOT LIVE
+🐦 **Twitter:** [@degentoolshq](https://x.com/dgnterminal)
+
+> **For Colosseum judges:** Full private repo access has been pre-provisioned for the Colosseum review team. If you need additional collaborator access, reach out to @legalalien0x on X.
+
 
 ---
 
 ## What It Does
 
-Degen Terminal collapses the memecoin trading stack into one interface. Traders typically juggle a wallet extension, a DEX screener, a Telegram alpha channel, a safety scanner, and an aggregator UI. The Terminal puts all of that — discovery, analysis, safety, execution, and rewards — behind a single login, with no browser extension required.
+Degen Terminal collapses the memecoin trading stack into one interface: real-time discovery, AI safety analysis, embedded wallets, and execution. Built Solana-first with Jupiter v6 for swaps and triggers, Helius WebSocket for sub-second pool detection, and Pump.fun + Bags + Four.meme integration for live launch coverage. BNB Chain is also supported as a secondary chain.
 
-It runs natively on **BNB Chain** and **Solana** side by side, with bridging built in.
+## What's In This Repo
 
-## Feature Highlights
+This repo is a curated snapshot containing architecture docs, representative edge functions, and the database schema. The full production codebase (web app, bot service, full edge function set, RLS policies, migrations, admin tools) is in a private repo. **Colosseum judges have already been added as collaborators** — no request needed.
 
-### 🔄 Trading & Execution
-- **Quick Swap** for instant in-terminal swaps on the active chain
-- **Buy/Sell Panel** with size presets and slippage controls
-- **Contract Sniper** — paste a CA, one-tap buy with pre-funded amounts
-- **Bridge Panel** — cross-chain BNB ↔ Solana via Li.Fi
-- **Trigger Orders** — limit / conditional orders (Jupiter triggers on SOL)
-- **Trade History** — server-persisted, with explorer links
 
-### 👛 Embedded Wallet
-- Privy-backed wallet — no Phantom or MetaMask required
-- Password-protected creation and unlock flow
-- Aggregated **Portfolio** with PnL across BNB + SOL
-- Native send/receive/on-ramp for both chains
-
-### 🔭 Alpha Scan (Discovery)
-- Real-time feed of fresh launches, top gainers, whale moves, graduating tokens
-- **Graduation Radar** — Pump.fun / Four.meme bonding curves nearing migration
-- **Trending Bar** by volume
-- **⌘K Search** for global token/contract lookup
-
-### 🛡️ AI Safety
-- Honeypot detection, mint authority checks, LP lock verification, tax checks — run **before every trade**
-- **AI Safety Explain** — Gemini-generated plain-English risk summary
-- Security grid on every token detail page
-
-### 🏆 Rewards System
-- Daily/weekly quests with server-side point computation (no client spoofing)
-- Streak tracking and leaderboard
-- Referrals: +500 points per qualified referral (referee must complete a trade)
-
-### 💬 Telegram Bot
-Once linked from Settings, the bot supports:
-- `/wallet`, `/portfolio` — balances and holdings
-- `/buy <ca> <amt>`, `/sell <ca> <amt|%>` — execute trades
-- `/scan <ca>` — AI safety scan
-- `/trending`, `/new` — discovery feeds
-- `/alert <ca> above|below <price>` — price alerts with background monitoring
-- `/alert list`, `/alert delete <id>`
-
----
+The full production codebase additionally includes the React frontend, the Telegram bot service, additional edge functions, RLS policies and migrations, and the admin treasury surface.
 
 ## Tech Stack
 
 | Layer | Tech |
 |---|---|
 | Frontend | React, TypeScript, Vite, TailwindCSS, shadcn/ui |
-| Backend | Supabase (Postgres + Edge Functions + Realtime) |
+| Backend | Supabase (Postgres, Edge Functions, Realtime, Auth, RLS) |
 | Hosting | Vercel |
-| Wallets | Privy (embedded) |
-| Solana routing | Jupiter (swaps + triggers) |
-| BNB routing | 1inch |
+| Wallets | Privy (auth) + custom embedded wallets (scrypt-encrypted private keys) |
+| Solana | Jupiter v6 (swaps + triggers), Helius (WebSocket + RPC) |
+| BNB | 1inch (swaps), Alchemy (RPC) |
 | Cross-chain | Li.Fi |
-| Live pool data | Helius WebSocket (SOL) |
-| Market data | Jupiter, DexScreener, Birdeye, Pump.fun, Bags, Four.meme |
-| AI | Gemini 2.5 Flash (safety explain, bot intent parsing) |
-| Bot framework | grammY |
-| Polling | cron-job.org |
+| Market data | Jupiter, DexScreener, Birdeye, Pump.fun, Bags, Four.meme, GoPlus |
+| AI | Gemini 2.5 Flash via internal AI gateway |
+| Bot | Node.js, TypeScript, grammY |
 
----
+## Security Posture
 
-## What's In This Repo
+The codebase went through a documented security audit ("Phase B") that addressed:
 
-This is a **curated submission repo**. The full production codebase is private. What's here is enough to evaluate engineering quality, architecture decisions, and product depth — without exposing internals that would aid fork attempts.
+1. **Cron secret enforcement** on scheduled functions
+2. **Zod input validation** on every public endpoint
+3. **Privy JWT verification** on privilege-sensitive endpoints (Telegram linking, developer access)
+4. **Strict path allowlists** on third-party API proxies (Li.Fi)
+5. **Wallet KDF migration** from broken SHA-512 to scrypt with per-record salt
+
+See `docs/safety-system.md` and the `HARDENED (Phase B)` comments in each edge function for details on each fix.
+
+## Demo
+
+🌐 **Live app:** [terminal.degentools.co](https://terminal.degentools.co)
+🤖 **Bot:** [@dgnterminalbot](https://t.me/dgnterminalbot)
+
+## About
+
+Built solo by **Outis Labs Technologies Limited** out of Lagos. Part of the [DegenTools](https://degentools.co) suite.
+
+**Contact:** [@legalalien0x](https://x.com/legalalien0x) · [degentools.co](https://degentools.co)
+
+## License
+
+Code in this repository is provided for hackathon evaluation only. Not licensed for redistribution or commercial use without written permission. See `LICENSE`.
 
