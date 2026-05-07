@@ -4,7 +4,7 @@
 
 🔗 **Live:** [terminal.degentools.co](https://terminal.degentools.co)
 🤖 **Telegram Bot:** [@dgnterminalbot](https://t.me/dgnterminalbot) NOT LIVE
-🐦 **Twitter:** [@degentoolshq](https://x.com/dgnterminal)
+🐦 **Twitter:** [@dgnterminal](https://x.com/dgnterminal)
 
 > **For Colosseum judges:** Full private repo access has been pre-provisioned for the Colosseum review team. If you need additional collaborator access, reach out to @legalalien0x on X.
 
