@@ -56,7 +56,7 @@ See `docs/safety-system.md` and the `HARDENED (Phase B)` comments in each edge f
 
 ## About
 
-Built solo by **Outis Labs Technologies Limited** out of Lagos. Part of the [DegenTools](https://degentools.co) suite.
+Built as Part of the [DegenTools Ecosystem](https://degentools.co) suite.
 
 **Contact:** [@legalalien0x](https://x.com/legalalien0x) · [degentools.co](https://degentools.co)
 
