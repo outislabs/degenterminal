@@ -1,162 +1,253 @@
--- Core schema for Degen Terminal
--- DDL only. RLS policies, triggers, and stored procedures live in the
--- private repo and are not included here.
+-- ─────────────────────────────────────────────────────────────────────────
+-- Sanitized snapshot of the production Postgres schema (Supabase) for
+-- Degen Terminal. DDL only — RLS policies, triggers, stored procedures,
+-- and indexes live in the private repo migrations and are not reproduced
+-- here. Column types and shapes match production.
+-- ─────────────────────────────────────────────────────────────────────────
 
--- ─────────────────────────────────────────────
--- Tokens & market data
--- ─────────────────────────────────────────────
+-- =========================================================================
+-- USER & WALLET STATE
+-- =========================================================================
 
-create table tokens (
-  address text not null,
-  chain text not null check (chain in ('sol', 'bnb')),
-  name text not null,
-  symbol text not null,
-  pair_address text not null,
-  initial_liquidity_usd numeric not null default 0,
-  price_usd numeric not null default 0,
-  volume_24h numeric not null default 0,
-  price_change_24h numeric not null default 0,
-  is_watchlisted boolean not null default false,
-  discovered_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  primary key (address, chain)
+-- Embedded wallets generated client-side. Private keys are encrypted with a
+-- user-supplied password before insertion using scrypt-derived keys (see
+-- src/lib/wallet.ts). The encryption format is versioned: v2 records start
+-- with byte 0x02 and use a 16-byte random salt + scrypt(N=2^15, r=8, p=1).
+-- Server never has access to plaintext keys.
+create table user_wallets (
+  id                          uuid primary key default gen_random_uuid(),
+  user_id                     text not null unique,            -- Privy DID
+  public_key                  text not null,                   -- Solana
+  encrypted_private_key       text not null,                   -- v1 or v2 base64
+  evm_public_key              text,
+  evm_encrypted_private_key   text,
+  created_at                  timestamptz default now()
 );
 
-create index idx_tokens_discovered_at on tokens (discovered_at desc);
-create index idx_tokens_chain on tokens (chain);
-
-create table price_snapshots (
-  id bigserial primary key,
-  token_address text not null,
-  chain text not null,
-  price_usd numeric not null,
-  liquidity_usd numeric not null,
-  volume_24h numeric not null,
-  captured_at timestamptz not null default now(),
-  foreign key (token_address, chain) references tokens (address, chain)
-    on delete cascade
-);
-
-create index idx_snapshots_token_time
-  on price_snapshots (token_address, chain, captured_at desc);
-
-create table alpha_feed (
-  id bigserial primary key,
-  token_address text not null,
-  chain text not null,
-  category text not null check (
-    category in ('new', 'trending', 'graduating', 'whale')
-  ),
-  discovered_at timestamptz not null default now()
-);
-
-create index idx_alpha_feed_lookup
-  on alpha_feed (category, chain, discovered_at desc);
-
--- ─────────────────────────────────────────────
--- User trading state (server source of truth)
--- ─────────────────────────────────────────────
-
+-- Server-of-record for executed trades. All rewards, leaderboards, and
+-- referral qualification derive from this table — clients cannot author it.
 create table user_trades (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
-  chain text not null,
-  token_address text not null,
-  side text not null check (side in ('buy', 'sell')),
-  amount_in numeric not null,
-  amount_out numeric not null,
-  price_usd numeric not null,
-  tx_hash text not null,
-  status text not null check (status in ('confirmed', 'failed')),
-  executed_at timestamptz not null default now()
+  id                  uuid primary key default gen_random_uuid(),
+  user_id             text not null,
+  client_id           text not null,                            -- idempotency key
+  ts                  timestamptz not null,
+  chain               text not null check (chain in ('sol', 'bnb')),
+  side                text not null check (side in ('buy', 'sell')),
+  status              text not null check (status in ('pending', 'success', 'failed')),
+  input_amount        text not null,
+  input_symbol        text not null,
+  output_amount       text not null,
+  output_symbol       text not null,
+  tx_hash             text not null,
+  token_address       text,
+  native_usd_at_trade numeric,
+  created_at          timestamptz not null default now()
 );
 
-create index idx_trades_user_time on user_trades (user_id, executed_at desc);
-create index idx_trades_token on user_trades (token_address, chain);
+-- =========================================================================
+-- MARKET DATA (Alpha Scan, token detail pages, discovery feeds)
+-- =========================================================================
 
-create table user_alerts (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
-  token_address text not null,
-  chain text not null,
-  condition jsonb not null,
-  active boolean not null default true,
-  last_fired_at timestamptz,
-  created_at timestamptz not null default now()
+-- Discovered tokens with current market metrics. Refreshed by background
+-- workers; cleaned by the cleanup-dead-tokens edge function (24h stale →
+-- mark dead, 7d dead → purge).
+create table market_tokens (
+  id                  uuid primary key default gen_random_uuid(),
+  chain               text not null check (chain in ('sol', 'bnb')),
+  token_address       text not null,
+  pair_address        text,
+  source              text not null,                            -- 'pump', 'bags', 'dexscreener', etc.
+  name                text,
+  symbol              text,
+  price_usd           numeric not null default 0,
+  price_change_24h    numeric not null default 0,
+  volume_24h_usd      numeric not null default 0,
+  market_cap_usd      numeric not null default 0,
+  liquidity_usd       numeric not null default 0,
+  holders             integer not null default 0,
+  txns_24h            integer not null default 0,
+  pair_created_at     bigint not null,
+  image_url           text,
+  dex_url             text,
+  website             text,
+  twitter             text,
+  telegram            text,
+  discord             text,
+  raw_payload         jsonb not null,
+  first_seen_at       timestamptz not null default now(),
+  last_refreshed_at   timestamptz not null default now(),
+  is_dead             boolean not null default false,
+  dead_marked_at      timestamptz,
+  unique (chain, token_address)
 );
 
-create index idx_alerts_user on user_alerts (user_id);
-create index idx_alerts_active on user_alerts (active) where active = true;
-
--- ─────────────────────────────────────────────
--- Rewards system
--- ─────────────────────────────────────────────
-
-create table user_quests (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
-  quest_key text not null,
-  progress jsonb not null default '{}'::jsonb,
-  completed_at timestamptz,
-  period_start date not null,
-  unique (user_id, quest_key, period_start)
+-- Lightweight metadata cache for tokens we've seen but don't track full
+-- market data on (decimals lookup, symbol resolution).
+create table token_metadata (
+  id          uuid primary key default gen_random_uuid(),
+  chain       text not null,
+  address     text not null,
+  decimals    integer not null,
+  symbol      text,
+  name        text,
+  created_at  timestamptz not null default now(),
+  unique (chain, address)
 );
 
-create table user_referrals (
-  id uuid primary key default gen_random_uuid(),
-  referrer_id uuid not null,
-  referee_id uuid not null,
-  status text not null check (status in ('pending', 'qualified', 'rejected')),
-  qualified_at timestamptz,
-  created_at timestamptz not null default now(),
-  unique (referee_id),
-  check (referrer_id <> referee_id)
+-- Generic short-lived cache for upstream API responses (DEX, holders, etc.).
+create table api_cache (
+  cache_key   text primary key,
+  payload     jsonb not null,
+  expires_at  timestamptz not null,
+  created_at  timestamptz not null default now()
 );
 
--- ─────────────────────────────────────────────
--- Telegram integration
--- ─────────────────────────────────────────────
+-- =========================================================================
+-- TELEGRAM BOT INTEGRATION
+-- =========================================================================
 
-create table telegram_link_codes (
-  code text primary key,
-  user_id uuid not null,
-  expires_at timestamptz not null,
-  consumed boolean not null default false,
-  created_at timestamptz not null default now()
+-- One-time link codes generated by connect-telegram edge function. Bot
+-- redeems via /start <token>. Codes expire after 10 minutes.
+create table terminal_telegram_tokens (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     text not null,                                    -- Privy DID
+  token       text not null unique,
+  chat_id     bigint,                                           -- set on redemption
+  expires_at  timestamptz not null,
+  used        boolean default false,
+  created_at  timestamptz default now()
 );
 
-create table telegram_links (
-  user_id uuid primary key,
-  telegram_chat_id text not null unique,
-  linked_at timestamptz not null default now()
+-- Active link between a Telegram chat and a Privy user.
+create table terminal_bot_sessions (
+  id                uuid primary key default gen_random_uuid(),
+  telegram_chat_id  bigint not null unique,
+  user_id           text not null,
+  linked_at         timestamptz default now()
 );
 
--- ─────────────────────────────────────────────
--- Roles & admin
--- ─────────────────────────────────────────────
-
-create table user_roles (
-  user_id uuid not null,
-  role text not null check (role in ('admin', 'mod')),
-  granted_at timestamptz not null default now(),
-  primary key (user_id, role)
+-- Price alerts set via /alert <ca> above|below <price>. Polled by the
+-- bot's background alert monitor; marked triggered when the condition fires.
+create table terminal_alerts (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           text not null,
+  telegram_chat_id  bigint not null,
+  token_address     text not null,
+  token_symbol      text,
+  chain             text not null check (chain in ('sol', 'bnb')),
+  target_price      numeric not null,
+  direction         text not null check (direction in ('above', 'below')),
+  triggered         boolean default false,
+  created_at        timestamptz default now()
 );
 
--- has_role(uid, role) helper lives in the private repo
--- and is referenced by RLS policies on admin tables.
-
--- ─────────────────────────────────────────────
--- Caches (short-lived, non-canonical)
--- ─────────────────────────────────────────────
-
-create table safety_scan_cache (
-  token_address text primary key,
-  payload jsonb not null,
-  scanned_at timestamptz not null default now()
+-- Two-step trade confirmation state. /buy and /sell first write a row here,
+-- bot replies with a confirmation prompt, user confirms → row is consumed
+-- and trade executes. Expired rows are reaped.
+create table terminal_pending_trades (
+  id                uuid primary key default gen_random_uuid(),
+  telegram_chat_id  bigint not null,
+  action            text not null check (action in ('buy', 'sell')),
+  contract_address  text not null,
+  amount            numeric not null,
+  chain             text not null check (chain in ('sol', 'bnb')),
+  token_symbol      text,
+  token_decimals    integer,
+  expires_at        timestamptz not null,
+  created_at        timestamptz default now()
 );
 
-create table holder_cache (
-  token_address text primary key,
-  payload jsonb not null,
-  fetched_at timestamptz not null default now()
+-- =========================================================================
+-- REWARDS SYSTEM (server-side computation prevents client spoofing)
+-- =========================================================================
+
+create table referral_codes (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         text not null unique,
+  referral_code   text not null unique,
+  created_at      timestamptz not null default now()
+);
+
+create table referrals (
+  id                 uuid primary key default gen_random_uuid(),
+  referrer_user_id   text not null,
+  referred_user_id   text not null unique,                      -- a user can only be referred once
+  referral_code      text not null,
+  created_at         timestamptz not null default now(),
+  first_trade_at     timestamptz,                               -- set when referee qualifies
+  check (referrer_user_id <> referred_user_id)
+);
+
+-- =========================================================================
+-- DEVELOPER ACCESS (API key requests for the public Degen Terminal API)
+-- =========================================================================
+
+-- Hardened in Phase B #4 — accessed exclusively via dev-access edge
+-- function with Privy JWT verification. Direct table access is blocked
+-- by RLS policies in the private migrations.
+create table developer_access_requests (
+  id              uuid primary key default gen_random_uuid(),
+  privy_user_id   text not null,
+  email           text not null,
+  company         text,
+  use_case        text not null,
+  expected_volume text,
+  wants_mcp       boolean not null,
+  wants_rest      boolean not null,
+  status          text not null default 'pending'
+                  check (status in ('pending', 'approved', 'rejected')),
+  admin_note      text,
+  created_at      timestamptz not null default now(),
+  reviewed_at     timestamptz
+);
+
+-- =========================================================================
+-- ADMIN
+-- =========================================================================
+
+create table admin_users (
+  privy_user_id   text primary key,
+  note            text,
+  created_at      timestamptz not null default now()
+);
+
+-- LI.FI integrator fee withdrawals from the lifi-proxy admin endpoint.
+-- Public read intentional — this is a transparent partner-fee audit log.
+create table lifi_withdrawals (
+  id                    uuid primary key default gen_random_uuid(),
+  admin_privy_user_id   text not null,
+  integrator            text not null,
+  chain_id              integer not null,
+  chain_name            text,
+  tx_hash               text,
+  tx_to                 text,
+  tx_data               text,
+  tx_value              text,
+  status                text not null,
+  amount_token_symbol   text,
+  amount_raw            text,
+  amount_usd            numeric,
+  error_message         text,
+  raw_response          jsonb,
+  created_at            timestamptz not null default now()
+);
+
+-- =========================================================================
+-- OBSERVABILITY
+-- =========================================================================
+
+-- Frontend error sink. Captures uncaught exceptions and React error-boundary
+-- catches with severity tiering. Used for production monitoring.
+create table client_errors (
+  id              uuid primary key default gen_random_uuid(),
+  created_at      timestamptz not null default now(),
+  privy_user_id   text,
+  severity        text not null check (severity in ('info', 'warn', 'error', 'fatal')),
+  source          text not null,
+  route           text,
+  message         text not null,
+  stack           text,
+  component_stack text,
+  user_agent      text,
+  metadata        jsonb not null default '{}'::jsonb
 );
