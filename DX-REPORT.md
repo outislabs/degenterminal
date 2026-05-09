@@ -63,8 +63,11 @@ Swap (Ultra) p99 is structurally near 1 second. p50 is 72.5ms (good), but p99 si
 Trigger volume scaled fast and error rate is still 5%. 571 calls in 7 days, with a 5.08% error rate and p99 around 830ms. Six different status codes appeared across those calls — 200, 400, 401, 404, 429, 500. The dashboard shows the codes but not what they mean in context. A 404 from /trigger/v2/orders/history could be a missing order, a wrong wallet, an expired session — the docs don’t enumerate failure modes per endpoint. An error code reference table would save real integration time.
 
 Naming inconsistency on the Trigger / Limit Order surface. The same product is named: “Limit Order” in the Developer Platform sidebar, “Trigger” in the API path (/trigger/v2/*), “Trigger orders” in some doc pages, and previously /limit/v2 (now deprecated). As a new builder I bounced between sidebar and docs trying to figure out which name was canonical. A single canonical name with the others as redirects would reduce first-time integration confusion.
+
 Swap (Ultra) has a wild p99 tail. p50 is 63ms (good), but p99 spikes to ~1 second routinely and hit ~10 seconds at one peak in the last 7 days. For a buy-button UX where users watch the button after clicking, sub-second consistency matters more than great average latency. The dashboard surfaces the tail but doesn’t help me understand whether spikes correlate with specific token routes, times of day, or Solana network conditions.
+
 Trigger returned six different status codes in 7 days — 200, 400, 401, 404, 429, 500 — across 227 calls. The dashboard shows the codes but not what they mean in context. A 404 from /trigger/v2/orders/history could be a missing order, a wrong wallet, an expired session — the docs don’t enumerate failure modes per endpoint. An error code reference table would save real integration time.
+
 Naming inconsistency on the Trigger / Limit Order surface. The same product is named: “Limit Order” in the Developer Platform sidebar, “Trigger” in the API path (/trigger/v2/*), “Trigger orders” in some doc pages, and previously /limit/v2 (now deprecated). As a new builder I bounced between sidebar and docs trying to figure out which name was canonical. A single canonical name with the others as redirects would reduce first-time integration confusion.
 
 ****3.** AI Stack feedback**
@@ -95,13 +98,20 @@ The Fresh Context Policy — instructing the agent to fetch live docs over the c
 **Jupiter MCP server**
 
 I registered the MCP server in .mcp.json but only lightly tested it during this session. What I observed: Claude Code did fetch live docs via MCP when I asked questions that the Skills file didn’t fully answer, which is the behavior the Skills file’s “Fresh Context Policy” instructs the agent to use. This split-of-concerns (cached structured guidance in Skills, live authoritative docs via MCP) feels right.
+
 The setup was a single config file edit — clean. No friction worth flagging there.
 I’d want to use the MCP harder over the next few weeks before forming a stronger opinion. As a 30-minute experiment: it works as advertised, and I’d keep it installed.
-Jupiter CLI
+
+**Jupiter CLI**
+
 Skipped due to time. Reading the brief description, the CLI sounds like the right tool for “agent that needs to execute Jupiter operations from a non-coding context” — Telegram bots, agentic trading systems, etc. For my current workflow (Claude Code editing a TypeScript codebase), the Skills file + MCP combination already covered what I needed.
+
 What would help: a “first 5 minutes with the CLI” guide that gives a concrete reason to install it for someone whose primary surface is a coding agent. Right now the install is a “do I really need this?” decision; the CLI’s value isn’t clear enough at first glance to overcome that activation cost.
-Overall
+
+**Overall**
+
 The AI stack as it exists today is genuinely useful — the Skills file alone moved my integration speed forward in a real way, and the MCP server is the right architecture for keeping the agent from reasoning over stale context.
+
 The biggest single improvement would be consistency: pick one canonical platform name (developers.jup.ag), make sure every reference across the Skills file, the docs site, and the agent’s mental model points to the same place. The current state has Claude Code confidently directing builders to portal.jup.ag while the actual flagship platform lives at developers.jup.ag. That’s a small fix that would prevent a meaningful amount of confusion.
 Second: add Lite/Pro architecture and Trigger CORS notes to the Skills file. These are two pieces of friction every integrator will hit, and the Skills file is the natural place to surface them before the friction hits.
 
