@@ -71,3 +71,15 @@ const tryHosts: Array<{ base: string; useKey: boolean }> = isTriggerRequest
       { base: JUP_LITE_BASE, useKey: false },
     ]
     : [{ base: JUP_LITE_BASE, useKey: false }];
+
+
+
+The fallback chain is defensive. The comment in the code reads: “free-tier keys are rejected by api.jup.ag with 401.” I hit cases during integration where api.jup.ag
+returned 401 with what I thought was a valid key, so I wrote the fallback to keep the product working. In production now, the fallback path almost never fires — my key works fine. But it’s still in the code because removing it requires me to trust that api.jup.ag will never return an unexpected 401, and that trust hasn’t been earned yet. What this means for a typical integrator This routing logic shouldn’t be in my code. As an integrator, I shouldn’t need to know which tier serves which endpoint, or write fallback chains in case a keyed call fails. Configuration should be: “here’s my key” or “I don’t have a key.” The client should figure out the rest. What would help, in order of preference:
+
+	1.	A unified SDK that takes an optional API key and handles tier routing internally. Right now there’s no first-party JS/TS client that abstracts this —
+I wrote my own in ~150 lines.
+	2.	A unified domain — api.jup.ag accepts requests without keys and downgrades gracefully to free-tier limits, instead of rejecting with 401. The two-domain split forces every integrator to learn it.
+	3.	A “key health” indicator on the dashboard. Right now if my key starts failing, my only signal is application errors. A widget showing “your key has had x auth failures in the last hour” would let me catch problems before users do.
+
+A note on the upcoming Lite deprecation Jupiter’s update notes mention lite-api.jup.ag is being deprecated (postponed from Jan 31, 2026, new date (TBA). When that happens, every keyless integrator gets forced through the same client refactor I just did. Unifying the domain or shipping an SDK before the deprecation lands would prevent a wave of confused support questions.
