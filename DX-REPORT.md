@@ -4,6 +4,30 @@ Account email: officiallegalalien@gmail.com
 Submitted: May 2026
 ---
 
+---
+
+> **A note on this repo**
+>
+> Degen Terminal's full production code lives in a private repo
+> (`outislabs/dgnterminal`). This repo (`outislabs/degenterminal`)
+> is a curated public submission containing architecture docs,
+> sanitized edge functions, and the database schema.
+>
+> Code excerpts in this report (e.g., the routing logic in
+> `src/lib/jupiter/client.ts`) reference my production code, not
+> code visible in this public repo. If Jupiter's review team would
+> like access to the production codebase to verify the integration,
+> happy to provide it — reach out via Telegram (@legalalien0x) or
+> email (officiallegalalien@gmail.com) and I'll add specific GitHub
+> users as collaborators.
+>
+> The dashboard usage data, error rates, and latency numbers in
+> this report all come from my Developer Platform account
+> (officiallegalalien@gmail.com), which Jupiter can cross-reference
+> directly.
+
+---
+
 **1.** Context
 I’m a solo founder building Degen Terminal — a Solana-native memecoin trading terminal at terminal.degentools.co.
 Three dates that anchor this report:
