@@ -68,26 +68,32 @@ Trigger returned six different status codes in 7 days — 200, 400, 401, 404, 42
 Naming inconsistency on the Trigger / Limit Order surface. The same product is named: “Limit Order” in the Developer Platform sidebar, “Trigger” in the API path (/trigger/v2/*), “Trigger orders” in some doc pages, and previously /limit/v2 (now deprecated). As a new builder I bounced between sidebar and docs trying to figure out which name was canonical. A single canonical name with the others as redirects would reduce first-time integration confusion.
 
 ****3.** AI Stack feedback**
+
 I installed two pieces of the Jupiter AI stack into my dgnterminal repo:
 	•	The Jupiter MCP server, registered via .mcp.json so Claude Code can fetch live Jupiter docs at query time
 	•	The integrating-jupiter Skill, dropped at .claude/skills/integrating-jupiter/SKILL.md
 I did not install the Jupiter CLI in the time available — the install path didn’t look like a 5-minute job, and for my workflow (Claude Code in VS Code on a TypeScript codebase) the Skills file + MCP felt like the higher-leverage pair. More on that at the end.
-Agent Skills — integrating-jupiter
+
+**Agent Skills — integrating-jupiter**
 This is the most impressive piece of the AI stack and the part I’d recommend Jupiter lean into hardest.
 
 **What works:**
+
 The file is structured for an LLM, not a human. The Intent Router table near the top maps “user intent → API family → first action” in a way that lets Claude correctly route a vague user request to the right endpoint without me having to specify. The per-API blocks all share the same structure (Base URL, Triggers, Endpoints, Gotchas, Refs), which makes Claude’s reasoning more predictable across surfaces.
 The error code tables are the standout. The swap /execute error code reference (e.g., -1004 = stale blockhash, retryable; -2003 = quote expired, retryable; -1003 = transaction not fully signed, not retryable) is directly actionable. I can hand this to Claude and have it write production-grade error handling on the first pass instead of after two iteration cycles.
 
 The Production Hardening checklist (auth, timeouts, retries, idempotency, observability) is the kind of guidance I’d normally have to compile myself by reading scattered blog posts. Having it in one referenced file is real DX value.
 The Fresh Context Policy — instructing the agent to fetch live docs over the cached Skills content — is a mature design choice. Most agent context files don’t tell the agent when to stop trusting them.
+
 **What I noticed as friction:**
+
 	1.	Inconsistent platform naming within the same file. The frontmatter and Quickstart both say “x-api-key from portal.jup.ag.” The Operational References link to “developers.jup.ag/docs/portal/setup.md.” When Claude Code worked through my repo, it told me to “get a Jupiter API key from portal.jup.ag” — but I’d already created my key at developers.jup.ag four days earlier. Both URLs point to Jupiter, but they’re different surfaces with different UIs and different histories. A new builder following this Skills file is going to land on the wrong page or get confused about which one they’re supposed to use. Pick one canonical name and use it consistently everywhere in the file.
 	2.	The Lite/Pro dual-domain architecture is not mentioned anywhere. I searched the file for lite-api.jup.ag — no hits. The architectural reality of my integration (some calls hit api.jup.ag with a key, some fall back to lite-api.jup.ag keyless, my client has 150 lines of routing code to handle the split) is invisible in the Skills file. This means another builder following this Skills file will hit the same 401 wall I hit and not understand why their key is “rejected” for some endpoints. Adding a single section explaining the Lite/Pro split — when each domain is the right call, when 401s happen — would prevent a meaningful class of integration failure.
 	3.	The Trigger CORS issue is not mentioned. The Trigger section is otherwise unusually thorough — it documents the dual-auth pattern (x-api-key + JWT), the three-step order creation flow, the two-step cancellation flow, the off-chain custodial vault architecture. But there’s nothing about the fact that Trigger calls cannot be made directly from a browser due to CORS, and that integrators need to deploy a server-side proxy to make it work. I learned this by hitting opaque network errors and writing my own Vercel edge proxy. A note in the Trigger section saying “browser-originated calls require a server-side proxy; here’s the recommended pattern” would have saved me an afternoon of debugging.
 	4.	No migration playbook in-file. The Swap section says: “Migrating from an older integration? Use the jupiter-swap-migration skill.” That separate skill presumably exists, but I didn’t find it in my install. A new builder won’t know to look for it. Either inline the migration guidance or make the cross-skill reference more discoverable (e.g., a skills index file that lists all related skills).
 	
 **Jupiter MCP server**
+
 I registered the MCP server in .mcp.json but only lightly tested it during this session. What I observed: Claude Code did fetch live docs via MCP when I asked questions that the Skills file didn’t fully answer, which is the behavior the Skills file’s “Fresh Context Policy” instructs the agent to use. This split-of-concerns (cached structured guidance in Skills, live authoritative docs via MCP) feels right.
 The setup was a single config file edit — clean. No friction worth flagging there.
 I’d want to use the MCP harder over the next few weeks before forming a stronger opinion. As a 30-minute experiment: it works as advertised, and I’d keep it installed.
@@ -100,11 +106,17 @@ The biggest single improvement would be consistency: pick one canonical platform
 Second: add Lite/Pro architecture and Trigger CORS notes to the Skills file. These are two pieces of friction every integrator will hit, and the Skills file is the natural place to surface them before the friction hits.
 
 **4.** What I’d build differently
+
 If I were on Jupiter’s Developer Platform team, the things I’d ship first:
+
 	1.	A first-party JS/TS SDK that handles tier routing internally. Take an optional API key in the constructor, abstract the Lite/Pro split, expose typed methods per API. This deletes 100+ lines of routing code from every integrator’s stack.
+	
 	2.	CORS allowlisting on Trigger (and any other endpoints with the same issue) tied to Developer Platform projects. Register approved origins per project; let the platform handle browser-safety instead of forcing each builder to deploy a proxy.
+	
 	3.	A keyless→keyed migration guide as a single docs page. Step-by-step, in code. Detect the migration, walk the user through it. This is the highest-traffic path for new conversions; it deserves the best docs page Jupiter has.
+	
 	4.	A “key health” dashboard widget. “Your key has had N auth failures in the last hour” — small, but it’s the difference between catching a problem in the dashboard vs. catching it from user complaints.
+	
 	5.	Error code reference per endpoint. Not a generic “here are HTTP status codes” page — a per-endpoint table that says “GET /trigger/v2/orders/history can return 404 when X, Y, or Z; 401 when…” Specifics that let me handle errors correctly the first time.
 
 Closing note
