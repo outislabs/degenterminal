@@ -44,13 +44,15 @@ const tryHosts: Array<{ base: string; useKey: boolean }> = isTriggerRequest
 
 The fallback is defensive. The comment in the code reads: “free-tier keys are rejected by api.jup.ag with 401.” I hit cases during integration where api.jup.ag returned 401 with what I thought was a valid key. In production now the fallback path almost never fires — but it’s still in the code because removing it requires me to trust that api.jup.ag will never return an unexpected 401, and that trust hasn’t been earned yet.
 This routing logic shouldn’t be in my code. A first-party SDK that takes an optional API key and handles tier routing internally would delete ~150 lines from my client. Or, more aggressively: a single domain that downgrades gracefully to free-tier limits when no key is provided, instead of returning 401.
+
 2.3 Trigger needs a browser proxy
 This is the friction that surprised me most.
 Calling the Trigger API directly from a browser fails with opaque CORS / network errors. To work around this I built a same-origin Vercel edge proxy. The browser calls my proxy, the proxy attaches the API key server-side, and the proxy forwards to api.jup.ag/trigger/v2/*.
 The Swap (Ultra) endpoints don’t have this issue — I call them directly from the browser without problems. So this is a per-route inconsistency, not a platform-wide constraint.
 What this proxy costs me: an extra Vercel function to maintain, an extra latency hop on every Trigger call, an extra failure mode (proxy down ≠ Jupiter down, but users see the same thing). My deployment surface is bigger than it needs to be because of this single routing quirk.
 What would help: CORS headers on /trigger/v2/* with an Origin allowlist tied to projects registered on the Developer Platform. Or at minimum, a note in the Trigger docs page that says “browser calls require a proxy, here’s the recommended pattern.” Right now the docs imply Trigger is a normal HTTP API. A new builder will spend an afternoon on CORS errors before figuring out they need a proxy. I did.
-2.4 Per-API observations
+
+##2.4 Per-API observations
 A few things from the dashboard worth flagging from the last 7 days:
 Price API is the platform’s strongest surface. 5,300 calls in 7 days, 99.92% success rate (~4 errors total), 20ms p50, 168ms p99, single endpoint (/price/v3). This is the API I trust most and lean on hardest — every token card, portfolio valuation, and swap preview hits Price. If the rest of the platform reached this consistency, my error handling layer would shrink dramatically.
 
