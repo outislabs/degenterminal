@@ -51,3 +51,23 @@ Also: when I created the key, the dashboard immediately started showing me usage
 keyless traffic with my new account. That's understandable from a security/audit perspective, but it means I can't see "what my product looked like before the migration vs. after" without manually instrumenting it myself.
 
 A "your account is X days old, here are your trends since key creation" view would soften that. Right now if I want to know whether the migration changed anything observable about my error rate or latency, I have to compare my internal metrics, not Jupiter's surface.
+
+## The Lite/Pro dual-domain architecture leaks into client code
+
+The Developer Platform serves traffic across two domains:
+
+- `api.jup.ag` — authenticated, requires a key, "Pro" tier
+- `lite-api.jup.ag` — keyless, free tier, separate endpoint
+
+On paper this is a clean separation. In practice, building a client that handles both took more thought than I expected. My Jupiter client (src/lib/jupiter/client.ts)
+ended up implementing a small routing layer that picks the correct base URL based on whether an API key is present, with a Pro→Lite fallback for the case where the keyed call fails:
+
+```typescript
+const tryHosts: Array<{ base: string; useKey: boolean }> = isTriggerRequest
+  ? [{ base: JUP_PRO_BASE, useKey: Boolean(apiKey) }]
+  : apiKey
+    ? [
+      { base: JUP_PRO_BASE, useKey: true },
+      { base: JUP_LITE_BASE, useKey: false },
+    ]
+    : [{ base: JUP_LITE_BASE, useKey: false }];
