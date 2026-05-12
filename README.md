@@ -13,7 +13,7 @@
 
 ## What It Does
 
-Degen Terminal collapses the memecoin trading stack into one interface: real-time discovery, AI safety analysis, embedded wallets, and execution. Built Solana-first with Jupiter v6 for swaps and triggers, Helius WebSocket for sub-second pool detection, and Pump.fun + Bags + Four.meme integration for live launch coverage. BNB Chain is also supported as a secondary chain.
+Degen Terminal collapses the memecoin trading stack into one interface: real-time discovery, AI safety analysis, embedded wallets, and execution. Built Solana-first with Jupiter for swaps and triggers, Helius WebSocket for sub-second pool detection, and Pump.fun + Bags + Four.meme integration for live launch coverage. BNB Chain is also supported as a secondary chain.
 
 ## What's In This Repo
 
